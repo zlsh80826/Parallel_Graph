@@ -1,2 +1,4 @@
 *.o
+seq
 doc/
+testenv/
