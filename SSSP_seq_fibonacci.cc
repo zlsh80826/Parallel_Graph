@@ -1,41 +1,48 @@
+#include <boost/heap/fibonacci_heap.hpp>
 #include <bits/stdc++.h>
-#include "fiboheap/fiboqueue.h"
 
-int64_t vertex_num, edge_num;
-int64_t* parent;
+int32_t vertex_num, edge_num;
+int32_t* parent;
+bool* inSet;
+bool* inHeap;
 
-int64_t user_threads;
-int64_t source;
+int32_t user_threads;
+int32_t source;
 char* input_file;
 char* output_file;
 std::fstream infs;
 std::fstream outfs;
 
+class heapNode {
+public:
+    int32_t distance_to_source;
+    int32_t index;
+};
+
+struct compareHeapNode {
+    bool operator()(const heapNode& a, const heapNode& b) const {
+        return a.distance_to_source > b.distance_to_source;
+    }
+};
+
 class vertex {
   public:
-    int64_t distance_to_source;
-    int64_t index;
-    bool inSet;
-    std::vector<std::pair<int64_t, int64_t>> neighbors;
+    int32_t distance_to_source;
+    int32_t index;
+    std::vector<std::pair<int32_t, int32_t>> neighbors;
 
-    vertex() : distance_to_source(std::numeric_limits<int64_t>::max()), inSet(false) {}
+    vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
 
-    void add_neighbor(int64_t index, int64_t weight) { neighbors.emplace_back(index, weight); }
+    void add_neighbor(int32_t index, int32_t weight) { neighbors.emplace_back(index, weight); }
 
     bool operator<(const vertex& v) const { return this->distance_to_source < v.distance_to_source; }
 
-    bool operator<=(const vertex& v) const { return this->distance_to_source <= v.distance_to_source; }
-
     bool operator>(const vertex& v) const { return this->distance_to_source > v.distance_to_source; }
-
-    bool operator==(const vertex& v) const { return this->distance_to_source == v.distance_to_source; }
-
-    bool operator>=(const vertex& v) const { return this->distance_to_source >= v.distance_to_source; }
 };
 
-void FindPath(int64_t root) {
-    std::vector<int64_t> reverse_vec;
-    int64_t current = root;
+void FindPath(int32_t root) {
+    std::vector<int32_t> reverse_vec;
+    int32_t current = root;
     reverse_vec.emplace_back(current);
     while (current != source) {
         current = parent[current];
@@ -62,15 +69,21 @@ int main(int argc, char** argv) {
     infs >> vertex_num >> edge_num;
 
     std::vector<vertex> graph(vertex_num + 1);
-    parent = new int64_t[vertex_num + 1];
+    std::vector<boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode> >::handle_type > handles(vertex_num + 1);
 
-    for (int64_t i = 0; i <= vertex_num; ++i) {
+    parent = new int32_t[vertex_num + 1];
+    inSet = new bool[vertex_num + 1];
+    inHeap = new bool[vertex_num + 1];
+
+    for (int32_t i = 0; i <= vertex_num; ++i) {
         parent[i] = source;
         graph[i].index = i;
+        inSet[i] = false;
+        inHeap[i] = false;
     }
 
-    for (int64_t i = 0; i < edge_num; ++i) {
-        int64_t start, to, weight;
+    for (int32_t i = 0; i < edge_num; ++i) {
+        int32_t start, to, weight;
         infs >> start >> to >> weight;
         graph[start].add_neighbor(to, weight);
         graph[to].add_neighbor(start, weight);
@@ -78,32 +91,37 @@ int main(int argc, char** argv) {
 
     infs.close();
 
-    std::priority_queue<vertex> Q;
-    FibHeap<vertex> FQ;
+    boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode> > FH;
     graph[source].distance_to_source = 0;
     parent[source] = source;
-    FQ.push(graph[source]);
+    handles[source] = FH.push( (heapNode){0, source} );
 
-    while (not FQ.empty()) {
-        auto u = FQ.top();
-        FQ.pop();
-        u.inSet = true;
-        for (auto v : u.neighbors) {
-            if ((not graph[v.first].inSet) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
+    while (not FH.empty()) {
+        auto node = FH.top();
+        FH.pop();
+        inSet[node.index] = true;
+        auto u = graph[node.index];
+        for (auto &v : u.neighbors) {
+            if ((not inSet[graph[v.first].index]) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
                 graph[v.first].distance_to_source = u.distance_to_source + v.second;
-                FQ.push(graph[v.first]);
                 parent[v.first] = u.index;
+                if (inHeap[v.first])
+                    FH.increase(handles[v.first], (heapNode){graph[v.first].distance_to_source, v.first});
+                else {
+                    handles[v.first] = FH.push((heapNode){graph[v.first].distance_to_source, v.first});
+                    inHeap[v.first] = true;
+                }
             }
         }
     }
 
     outfs.open(output_file, std::fstream::out);
 
-    for (int64_t i = 1; i <= vertex_num; ++i) {
-    	if ( i == source )
-    		outfs << source << " " << source << std::endl;
-    	else
-        	FindPath(i);
+    for (int32_t i = 1; i <= vertex_num; ++i) {
+        if (i == source)
+            outfs << source << " " << source << std::endl;
+        else
+            FindPath(i);
     }
 
     outfs.close();
