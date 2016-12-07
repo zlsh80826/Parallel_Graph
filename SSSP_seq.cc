@@ -2,6 +2,7 @@
 
 int32_t vertex_num, edge_num;
 int32_t* parent;
+bool* inSet;
 
 int32_t user_threads;
 int32_t source;
@@ -10,14 +11,23 @@ char* output_file;
 std::fstream infs;
 std::fstream outfs;
 
+class heapNode {
+public:
+    int32_t distance_to_source;
+    int32_t index;
+
+    bool operator<(const heapNode& h) const { return this->distance_to_source < h.distance_to_source; }
+
+    bool operator>(const heapNode& h) const { return this->distance_to_source > h.distance_to_source; }
+};
+
 class vertex {
   public:
     int32_t distance_to_source;
     int32_t index;
-    bool inSet;
     std::vector<std::pair<int32_t, int32_t>> neighbors;
 
-    vertex() : distance_to_source(std::numeric_limits<int32_t>::max()), inSet(false) {}
+    vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
 
     void add_neighbor(int32_t index, int32_t weight) { neighbors.emplace_back(index, weight); }
 
@@ -56,10 +66,12 @@ int main(int argc, char** argv) {
 
     std::vector<vertex> graph(vertex_num + 1);
     parent = new int32_t[vertex_num + 1];
+    inSet = new bool[vertex_num + 1];
 
     for (int32_t i = 0; i <= vertex_num; ++i) {
         parent[i] = source;
         graph[i].index = i;
+        inSet[i] = false;
     }
 
     for (int32_t i = 0; i < edge_num; ++i) {
@@ -71,19 +83,22 @@ int main(int argc, char** argv) {
 
     infs.close();
 
-    std::priority_queue<vertex, std::vector<vertex>, std::greater<vertex> > Q;
+    std::priority_queue<heapNode, std::vector<heapNode>, std::greater<heapNode> > Q;
     graph[source].distance_to_source = 0;
     parent[source] = source;
-    Q.push(graph[source]);
+    Q.push((heapNode){0, source});
 
     while (not Q.empty()) {
-        auto u = Q.top();
+        auto node = Q.top();
         Q.pop();
-        u.inSet = true;
-        for (auto v : u.neighbors) {
-            if ((not graph[v.first].inSet) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
+        if (inSet[node.index])
+            continue;
+        inSet[node.index] = true;
+        auto u = graph[node.index];
+        for (auto &v : u.neighbors) {
+            if ((not inSet[ graph[v.first].index ]) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
                 graph[v.first].distance_to_source = u.distance_to_source + v.second;
-                Q.push(graph[v.first]);
+                Q.push((heapNode){graph[v.first].distance_to_source, v.first});
                 parent[v.first] = u.index;
             }
         }
