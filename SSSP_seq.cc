@@ -12,7 +12,7 @@ std::fstream infs;
 std::fstream outfs;
 
 class heapNode {
-public:
+  public:
     int32_t distance_to_source;
     int32_t index;
 
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
     user_threads = std::stoi(argv[1]);
     input_file = argv[2];
     output_file = argv[3];
-    source = atoi(argv[4]);
+    source = std::stoi(argv[4]);
 
     infs.open(input_file, std::fstream::in);
 
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
 
     infs.close();
 
-    std::priority_queue<heapNode, std::vector<heapNode>, std::greater<heapNode> > Q;
+    std::priority_queue<heapNode, std::vector<heapNode>, std::greater<heapNode>> Q;
     graph[source].distance_to_source = 0;
     parent[source] = source;
     Q.push((heapNode){0, source});
@@ -94,9 +94,10 @@ int main(int argc, char** argv) {
         if (inSet[node.index])
             continue;
         inSet[node.index] = true;
-        auto u = graph[node.index];
-        for (auto &v : u.neighbors) {
-            if ((not inSet[ graph[v.first].index ]) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
+        const auto u = graph[node.index];
+        for (const auto& v : u.neighbors) {
+            if ((not inSet[graph[v.first].index]) &&
+                (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
                 graph[v.first].distance_to_source = u.distance_to_source + v.second;
                 Q.push((heapNode){graph[v.first].distance_to_source, v.first});
                 parent[v.first] = u.index;

@@ -1,5 +1,5 @@
-#include <boost/heap/fibonacci_heap.hpp>
 #include <bits/stdc++.h>
+#include <boost/heap/fibonacci_heap.hpp>
 
 int32_t vertex_num, edge_num;
 int32_t* parent;
@@ -14,15 +14,13 @@ std::fstream infs;
 std::fstream outfs;
 
 class heapNode {
-public:
+  public:
     int32_t distance_to_source;
     int32_t index;
 };
 
 struct compareHeapNode {
-    bool operator()(const heapNode& a, const heapNode& b) const {
-        return a.distance_to_source > b.distance_to_source;
-    }
+    bool operator()(const heapNode& a, const heapNode& b) const { return a.distance_to_source > b.distance_to_source; }
 };
 
 class vertex {
@@ -69,7 +67,8 @@ int main(int argc, char** argv) {
     infs >> vertex_num >> edge_num;
 
     std::vector<vertex> graph(vertex_num + 1);
-    std::vector<boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode> >::handle_type > handles(vertex_num + 1);
+    std::vector<boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode>>::handle_type> handles(
+        vertex_num + 1);
 
     parent = new int32_t[vertex_num + 1];
     inSet = new bool[vertex_num + 1];
@@ -91,18 +90,19 @@ int main(int argc, char** argv) {
 
     infs.close();
 
-    boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode> > FH;
+    boost::heap::fibonacci_heap<heapNode, boost::heap::compare<compareHeapNode>> FH;
     graph[source].distance_to_source = 0;
     parent[source] = source;
-    handles[source] = FH.push( (heapNode){0, source} );
+    handles[source] = FH.push((heapNode){0, source});
 
     while (not FH.empty()) {
         auto node = FH.top();
         FH.pop();
         inSet[node.index] = true;
         auto u = graph[node.index];
-        for (auto &v : u.neighbors) {
-            if ((not inSet[graph[v.first].index]) && (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
+        for (auto& v : u.neighbors) {
+            if ((not inSet[graph[v.first].index]) &&
+                (graph[v.first].distance_to_source > u.distance_to_source + v.second)) {
                 graph[v.first].distance_to_source = u.distance_to_source + v.second;
                 parent[v.first] = u.index;
                 if (inHeap[v.first])

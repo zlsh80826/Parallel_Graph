@@ -10,24 +10,21 @@ std::fstream infs;
 std::fstream outfs;
 
 class Edge {
-public:
-	int32_t to;
-	int32_t weight;
+  public:
+    int32_t to;
+    int32_t weight;
 
-	Edge(int32_t to, int32_t weight) : to(to), weight(weight) {}
+    Edge(int32_t to, int32_t weight) : to(to), weight(weight) {}
 
-	bool operator<(const Edge& e) const {
-		return this -> weight < e.weight;
-	}
-
+    bool operator<(const Edge& e) const { return this->weight < e.weight; }
 };
 
 class Vertex {
-public:
-	int32_t distance_to_source;
-	std::vector<Edge> neighbors;
+  public:
+    int32_t distance_to_source;
+    std::vector<Edge> neighbors;
 
-	Vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
+    Vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
 };
 
 void FindPath(int32_t root) {
@@ -47,72 +44,74 @@ void FindPath(int32_t root) {
     outfs << reverse_vec[reverse_vec.size() - 1] << std::endl;
 }
 
-int main (int argc, char** argv) {
+int main(int argc, char** argv) {
 
-	user_threads = std::stoi(argv[1]);
-	source = std::stoi(argv[4]);
-	input_file = argv[2];
-	output_file = argv[3];
+    user_threads = std::stoi(argv[1]);
+    source = std::stoi(argv[4]);
+    input_file = argv[2];
+    output_file = argv[3];
 
-	auto IstartTimer = std::chrono::high_resolution_clock::now();
+    auto IstartTimer = std::chrono::high_resolution_clock::now();
 
-	infs.open(input_file, std::fstream::in);
+    infs.open(input_file, std::fstream::in);
 
-	infs >> vertex_num >> edge_num;
+    infs >> vertex_num >> edge_num;
 
-	parent = new int32_t[vertex_num + 1];
-	for (int i = 1; i <= vertex_num; ++ i) {
-		parent[i] = source;
-	}
+    parent = new int32_t[vertex_num + 1];
+    for (int i = 1; i <= vertex_num; ++i) {
+        parent[i] = source;
+    }
 
-	std::vector<Vertex> vertex(vertex_num + 1);
+    std::vector<Vertex> vertex(vertex_num + 1);
 
-	for (int32_t i = 0; i < edge_num; ++ i) {
-		int32_t start, to, weight;
-		infs >> start >> to >> weight;
-		vertex[start].neighbors.emplace_back(to, weight);
-		vertex[to].neighbors.emplace_back(start, weight);
-	}
+    for (int32_t i = 0; i < edge_num; ++i) {
+        int32_t start, to, weight;
+        infs >> start >> to >> weight;
+        vertex[start].neighbors.emplace_back(to, weight);
+        vertex[to].neighbors.emplace_back(start, weight);
+    }
 
-	infs.close();
+    infs.close();
 
-	auto IendTimer = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
+    auto IendTimer = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
     std::cout << "Input took " << Idiff.count() << " Second" << std::endl;
 
     auto startTimer = std::chrono::high_resolution_clock::now();
-	vertex[source].distance_to_source = 0;
+    vertex[source].distance_to_source = 0;
 
-	int32_t me;
-	int32_t you;
+    int32_t me;
+    int32_t you;
 
-	bool done = false;
-	while (not done) {
-		done = true;
-		for (int32_t i = source, j = 1; j <= vertex_num; i = i%vertex_num + 1, ++j) {
-			// std::cout << "----------" << i << " iterations----------\n";
-			const auto& v = vertex[i];
-			if (v.distance_to_source == std::numeric_limits<int32_t>::max())
-				continue;
-			for (const auto& u : v.neighbors) {
-				// std::cout << v.distance_to_source << " " << u.weight << " " << vertex[u.to].distance_to_source << std::endl;
-				me = v.distance_to_source + u.weight;
-				you = vertex[u.to].distance_to_source;
-				if ( me < you ) {
-					// std::cout << u.to << " distance_to_source" << " is update to " << v.distance_to_source + u.weight << std::endl;
-					vertex[u.to].distance_to_source = me;
-					parent[u.to] = i;
-					done = false;
-				}
-			}
-		}
-	}
+    bool done = false;
+    while (not done) {
+        done = true;
+        for (int32_t i = source, j = 1; j <= vertex_num; i = i % vertex_num + 1, ++j) {
+            // std::cout << "----------" << i << " iterations----------\n";
+            const auto& v = vertex[i];
+            if (v.distance_to_source == std::numeric_limits<int32_t>::max())
+                continue;
+            for (const auto& u : v.neighbors) {
+                // std::cout << v.distance_to_source << " " << u.weight << " " << vertex[u.to].distance_to_source <<
+                // std::endl;
+                me = v.distance_to_source + u.weight;
+                you = vertex[u.to].distance_to_source;
+                if (me < you) {
+                    // std::cout << u.to << " distance_to_source" << " is update to " << v.distance_to_source + u.weight
+                    // << std::endl;
+                    vertex[u.to].distance_to_source = me;
+                    parent[u.to] = i;
+                    done = false;
+                }
+            }
+        }
+    }
 
     auto endTimer = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = endTimer - startTimer;
     std::cout << "Bellmen compute took " << diff.count() << " Second" << std::endl;
 
-	auto OstartTimer = std::chrono::high_resolution_clock::now();
+    auto OstartTimer = std::chrono::high_resolution_clock::now();
     outfs.open(output_file, std::fstream::out);
 
     for (int32_t i = 1; i <= vertex_num; ++i) {
@@ -124,7 +123,7 @@ int main (int argc, char** argv) {
     outfs.close();
 
     auto OendTimer = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> Odiff = OendTimer - OstartTimer;
+    std::chrono::duration<double> Odiff = OendTimer - OstartTimer;
     std::cout << "Output took " << Odiff.count() << " Second" << std::endl;
     return 0;
 }
