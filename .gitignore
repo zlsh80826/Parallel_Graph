@@ -1,4 +1,10 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# What we want ignore
 *.o
-seq
 doc/
 testenv/
