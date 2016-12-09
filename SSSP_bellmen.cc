@@ -6,8 +6,8 @@ int32_t source;
 int32_t* parent;
 char* input_file;
 char* output_file;
-std::fstream infs;
-std::fstream outfs;
+std::ifstream infs;
+std::ofstream outfs;
 
 class Edge {
   public:
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 
     auto IstartTimer = std::chrono::high_resolution_clock::now();
 
-    infs.open(input_file, std::fstream::in);
+    infs.open(input_file);
 
     infs >> vertex_num >> edge_num;
 
@@ -64,8 +64,8 @@ int main(int argc, char** argv) {
 
     std::vector<Vertex> vertex(vertex_num + 1);
 
+    int32_t start, to, weight;
     for (int32_t i = 0; i < edge_num; ++i) {
-        int32_t start, to, weight;
         infs >> start >> to >> weight;
         vertex[start].neighbors.emplace_back(to, weight);
         vertex[to].neighbors.emplace_back(start, weight);
@@ -87,18 +87,13 @@ int main(int argc, char** argv) {
     while (not done) {
         done = true;
         for (int32_t i = source, j = 1; j <= vertex_num; i = i % vertex_num + 1, ++j) {
-            // std::cout << "----------" << i << " iterations----------\n";
             const auto& v = vertex[i];
             if (v.distance_to_source == std::numeric_limits<int32_t>::max())
                 continue;
             for (const auto& u : v.neighbors) {
-                // std::cout << v.distance_to_source << " " << u.weight << " " << vertex[u.to].distance_to_source <<
-                // std::endl;
                 me = v.distance_to_source + u.weight;
                 you = vertex[u.to].distance_to_source;
                 if (me < you) {
-                    // std::cout << u.to << " distance_to_source" << " is update to " << v.distance_to_source + u.weight
-                    // << std::endl;
                     vertex[u.to].distance_to_source = me;
                     parent[u.to] = i;
                     done = false;
@@ -112,7 +107,7 @@ int main(int argc, char** argv) {
     std::cout << "Bellmen compute took " << diff.count() << " Second" << std::endl;
 
     auto OstartTimer = std::chrono::high_resolution_clock::now();
-    outfs.open(output_file, std::fstream::out);
+    outfs.open(output_file);
 
     for (int32_t i = 1; i <= vertex_num; ++i) {
         if (i == source)
