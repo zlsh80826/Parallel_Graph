@@ -87,13 +87,7 @@ void ReadFile(int thread_id) {
 
     for (ssize_t i = 0; i < work_load; ++ i) {
         int32_t start, to, weight;
-        // file_mutex.lock();
         infs >> start >> to >> weight;
-        // std::cout << start << " " << to << " " << weight << '\n';
-        // file_mutex.unlock();
-        // std::cout << start << " " << to << " " << weight << std::endl;
-        // vertex[start].neighbors.emplace_back(to, weight);
-        // vertex[to].neighbors.emplace_back(start, weight);
         vertex[start].add_neighbor(to, weight);
         vertex[to].add_neighbor(start, weight);
     }
@@ -121,26 +115,15 @@ int main(int argc, char** argv) {
         parent[i] = source;
     }
 
-    // std::vector<Vertex> vertex(vertex_num + 1);
     vertex = std::vector<Vertex>(vertex_num + 1);
-    // vertex.reserve(vertex_num + 1);
-
-    // int32_t start, to, weight;
 
     for (int i = 0; i < user_threads; ++ i) {
-        threads_pool.push_back(std::thread(ReadFile, i));
+        threads_pool.push_back(std::thread(ReadFile, user_threads - i - 1));
     }
 
     for (auto& t : threads_pool) {
         t.join();
     }
-
-    /*for (int32_t i = 0; i < edge_num; ++i) {
-        infs >> start >> to >> weight;
-        vertex[start].neighbors.emplace_back(to, weight);
-        vertex[to].neighbors.emplace_back(start, weight);
-    }*/
-
 
     auto IendTimer = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
