@@ -1,3 +1,6 @@
+
+#include <unistd.h>
+#include <sys/syscall.h>
 #include <bits/stdc++.h>
 
 int32_t vertex_num, edge_num;
@@ -8,6 +11,9 @@ char* input_file;
 char* output_file;
 std::ifstream infs;
 std::ofstream outfs;
+
+std::vector<std::thread> threads_pool;
+std::mutex file_mutex;
 
 class Edge {
   public:
@@ -23,9 +29,17 @@ class Vertex {
   public:
     int32_t distance_to_source;
     std::vector<Edge> neighbors;
+    std::mutex mutex_v;
+
+    void add_neighbor(int32_t to, int32_t weight) {
+        std::lock_guard<std::mutex> lock(mutex_v);
+        neighbors.emplace_back(to, weight);
+    }
 
     Vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
 };
+
+std::vector<Vertex> vertex;
 
 void FindPath(int32_t root) {
     std::vector<int32_t> reverse_vec;
@@ -42,6 +56,21 @@ void FindPath(int32_t root) {
         outfs << reverse_vec[i] << " ";
     }
     outfs << reverse_vec[reverse_vec.size() - 1] << std::endl;
+}
+
+void ReadFile() {
+    std::cout << syscall(SYS_gettid) << std::endl;
+    while ( infs.good() ) {
+        int32_t start, to, weight;
+        file_mutex.lock();
+        infs >> start >> to >> weight;
+        file_mutex.unlock();
+        // std::cout << start << " " << to << " " << weight << std::endl;
+        // vertex[start].neighbors.emplace_back(to, weight);
+        // vertex[to].neighbors.emplace_back(start, weight);
+        vertex[start].add_neighbor(to, weight);
+        vertex[to].add_neighbor(start, weight);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -62,14 +91,25 @@ int main(int argc, char** argv) {
         parent[i] = source;
     }
 
-    std::vector<Vertex> vertex(vertex_num + 1);
+    // std::vector<Vertex> vertex(vertex_num + 1);
+    vertex = std::vector<Vertex>(vertex_num + 1);
+    // vertex.reserve(vertex_num + 1);
 
-    int32_t start, to, weight;
-    for (int32_t i = 0; i < edge_num; ++i) {
+    // int32_t start, to, weight;
+
+    for (int i = 0; i < user_threads; ++ i) {
+        threads_pool.push_back(std::thread(ReadFile));
+    }
+
+    for (auto& t : threads_pool) {
+        t.join();
+    }
+
+    /*for (int32_t i = 0; i < edge_num; ++i) {
         infs >> start >> to >> weight;
         vertex[start].neighbors.emplace_back(to, weight);
         vertex[to].neighbors.emplace_back(start, weight);
-    }
+    }*/
 
     infs.close();
 
