@@ -3,10 +3,10 @@
 #include <sys/syscall.h>
 #include <bits/stdc++.h>
 
-int32_t vertex_num, edge_num;
-int32_t user_threads;
-int32_t source;
-int32_t* parent;
+uint32_t vertex_num, edge_num;
+uint32_t user_threads;
+uint32_t source;
+uint32_t* parent;
 char* input_file;
 char* output_file;
 
@@ -17,33 +17,33 @@ std::mutex file_mutex;
 
 class Edge {
   public:
-    int32_t to;
-    int32_t weight;
+    uint32_t to;
+    uint32_t weight;
 
-    Edge(int32_t to, int32_t weight) : to(to), weight(weight) {}
+    Edge(uint32_t to, uint32_t weight) : to(to), weight(weight) {}
 
     bool operator<(const Edge& e) const { return this->weight < e.weight; }
 };
 
 class Vertex {
   public:
-    int32_t distance_to_source;
+    uint32_t distance_to_source;
     std::vector<Edge> neighbors;
     std::mutex mutex_v;
 
-    void add_neighbor(int32_t to, int32_t weight) {
+    void add_neighbor(uint32_t to, uint32_t weight) {
         std::lock_guard<std::mutex> lock(mutex_v);
         neighbors.emplace_back(to, weight);
     }
 
-    Vertex() : distance_to_source(std::numeric_limits<int32_t>::max()) {}
+    Vertex() : distance_to_source(std::numeric_limits<uint32_t>::max()) {}
 };
 
 std::vector<Vertex> vertex;
 
-void FindPath(int32_t root) {
-    std::vector<int32_t> reverse_vec;
-    int32_t current = root;
+void FindPath(uint32_t root) {
+    std::vector<uint32_t> reverse_vec;
+    uint32_t current = root;
     reverse_vec.emplace_back(current);
     while (current != source) {
         current = parent[current];
@@ -65,7 +65,7 @@ void GoToLine(std::ifstream& file, uint32_t num) {
     }
 }
 
-void ReadFile(int thread_id) {
+void ReadFile(uint thread_id) {
     std::cout << syscall(SYS_gettid) << std::endl;
     std::ifstream infs;
     infs.open(input_file);
@@ -74,7 +74,7 @@ void ReadFile(int thread_id) {
     uint32_t work_load;
     uint32_t start_line;
 
-    if (thread_id < (int32_t)extra) {
+    if (thread_id < extra) {
         start_line = chunk_size * thread_id + 2;
         work_load = chunk_size;
     } else {
@@ -86,7 +86,7 @@ void ReadFile(int thread_id) {
     std::cout << "Go to " << start_line << " done" << std::endl;
 
     for (ssize_t i = 0; i < work_load; ++ i) {
-        int32_t start, to, weight;
+        uint32_t start, to, weight;
         infs >> start >> to >> weight;
         vertex[start].add_neighbor(to, weight);
         vertex[to].add_neighbor(start, weight);
@@ -110,14 +110,14 @@ int main(int argc, char** argv) {
     infs >> vertex_num >> edge_num;
 
     infs.close();
-    parent = new int32_t[vertex_num + 1];
-    for (int i = 1; i <= vertex_num; ++i) {
+    parent = new uint32_t[vertex_num + 1];
+    for (ssize_t i = 1; i <= vertex_num; ++i) {
         parent[i] = source;
     }
 
     vertex = std::vector<Vertex>(vertex_num + 1);
 
-    for (int i = 0; i < user_threads; ++ i) {
+    for (ssize_t i = 0; i < user_threads; ++ i) {
         threads_pool.push_back(std::thread(ReadFile, user_threads - i - 1));
     }
 
@@ -132,15 +132,15 @@ int main(int argc, char** argv) {
     auto startTimer = std::chrono::high_resolution_clock::now();
     vertex[source].distance_to_source = 0;
 
-    int32_t me;
-    int32_t you;
+    uint32_t me;
+    uint32_t you;
 
     bool done = false;
     while (not done) {
         done = true;
-        for (int32_t i = source, j = 1; j <= vertex_num; i = i % vertex_num + 1, ++j) {
+        for (uint32_t i = source, j = 1; j <= vertex_num; i = i % vertex_num + 1, ++j) {
             const auto& v = vertex[i];
-            if (v.distance_to_source == std::numeric_limits<int32_t>::max())
+            if (v.distance_to_source == std::numeric_limits<uint32_t>::max())
                 continue;
             for (const auto& u : v.neighbors) {
                 me = v.distance_to_source + u.weight;
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
     auto OstartTimer = std::chrono::high_resolution_clock::now();
     outfs.open(output_file);
 
-    for (int32_t i = 1; i <= vertex_num; ++i) {
+    for (uint32_t i = 1; i <= vertex_num; ++i) {
         if (i == source)
             outfs << source << " " << source << std::endl;
         else
