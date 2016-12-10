@@ -9,7 +9,7 @@ int32_t source;
 int32_t* parent;
 char* input_file;
 char* output_file;
-std::ifstream infs;
+
 std::ofstream outfs;
 
 std::vector<std::thread> threads_pool;
@@ -58,19 +58,47 @@ void FindPath(int32_t root) {
     outfs << reverse_vec[reverse_vec.size() - 1] << std::endl;
 }
 
-void ReadFile() {
+void GoToLine(std::ifstream& file, uint32_t num) {
+    file.seekg(std::ios::beg);
+    for (ssize_t i = 0; i < num - 1; ++ i) {
+        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+}
+
+void ReadFile(int thread_id) {
     std::cout << syscall(SYS_gettid) << std::endl;
-    while ( infs.good() ) {
+    std::ifstream infs;
+    infs.open(input_file);
+    uint32_t extra = edge_num % user_threads;
+    uint32_t chunk_size = edge_num / user_threads + 1;
+    uint32_t work_load;
+    uint32_t start_line;
+
+    if (thread_id < (int32_t)extra) {
+        start_line = chunk_size * thread_id + 2;
+        work_load = chunk_size;
+    } else {
+        start_line = (chunk_size * extra) + (chunk_size - 1) * (thread_id - extra) + 2;
+        work_load = chunk_size - 1;
+    }
+
+    GoToLine(infs, start_line);
+    std::cout << "Go to " << start_line << " done" << std::endl;
+
+    for (ssize_t i = 0; i < work_load; ++ i) {
         int32_t start, to, weight;
-        file_mutex.lock();
+        // file_mutex.lock();
         infs >> start >> to >> weight;
-        file_mutex.unlock();
+        // std::cout << start << " " << to << " " << weight << '\n';
+        // file_mutex.unlock();
         // std::cout << start << " " << to << " " << weight << std::endl;
         // vertex[start].neighbors.emplace_back(to, weight);
         // vertex[to].neighbors.emplace_back(start, weight);
         vertex[start].add_neighbor(to, weight);
         vertex[to].add_neighbor(start, weight);
     }
+
+    infs.close();
 }
 
 int main(int argc, char** argv) {
@@ -82,10 +110,12 @@ int main(int argc, char** argv) {
 
     auto IstartTimer = std::chrono::high_resolution_clock::now();
 
+    std::ifstream infs;
     infs.open(input_file);
 
     infs >> vertex_num >> edge_num;
 
+    infs.close();
     parent = new int32_t[vertex_num + 1];
     for (int i = 1; i <= vertex_num; ++i) {
         parent[i] = source;
@@ -98,7 +128,7 @@ int main(int argc, char** argv) {
     // int32_t start, to, weight;
 
     for (int i = 0; i < user_threads; ++ i) {
-        threads_pool.push_back(std::thread(ReadFile));
+        threads_pool.push_back(std::thread(ReadFile, i));
     }
 
     for (auto& t : threads_pool) {
@@ -111,7 +141,6 @@ int main(int argc, char** argv) {
         vertex[to].neighbors.emplace_back(start, weight);
     }*/
 
-    infs.close();
 
     auto IendTimer = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
