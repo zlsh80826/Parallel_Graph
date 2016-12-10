@@ -1,10 +1,14 @@
 #include <bits/stdc++.h>
 #include <mpi.h>
 
+#define GRAPH_DATA 666
+
 uint32_t vertex_num, edge_num;
 uint32_t user_threads;
 uint32_t source;
 int32_t Rank, nprocs, sender_num;
+
+MPI_Datatype MPI_Edge;
 
 char* input_file;
 char* output_file;
@@ -28,6 +32,7 @@ public:
 };
 
 std::vector<Vertex> vertex;
+Vertex me;
 
 void GoToLine(std::ifstream& file, uint32_t num) {
     file.seekg(std::ios::beg);
@@ -37,9 +42,15 @@ void GoToLine(std::ifstream& file, uint32_t num) {
 }
 
 void recv_neighbors() {
-    /*for ( size_t i = 0; i < sender_num; ++ i) {
-        MPI_IRecv();
-    }*/
+    for ( ssize_t i = 0; i < sender_num; ++ i) {
+        std::vector<Edge> mirror;
+        MPI_Request request;
+        MPI_Irecv(mirror.data(), vertex_num, MPI_Edge, MPI_ANY_SOURCE, GRAPH_DATA, MPI_COMM_WORLD, &request);
+    }
+}
+
+void send_neighbors() {
+
 }
 
 void parallelReadFile(int total_read_rank) {
@@ -73,9 +84,18 @@ void parallelReadFile(int total_read_rank) {
 }
 
 int main(int argc, char** argv) {
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &Rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+
+    MPI_Datatype type[2] = {MPI_UNSIGNED, MPI_UNSIGNED};
+    int blocklen[2] = {1, 1};
+    MPI_Aint disp[2];
+    disp[0] = 0;
+    disp[1] = 4;
+    MPI_Type_create_struct(2, blocklen, disp, type, &MPI_Edge);
+    MPI_Type_commit(&MPI_Edge);
 
     double startTime = MPI_Wtime();
 
