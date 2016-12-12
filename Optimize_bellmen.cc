@@ -1,5 +1,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
+// #include <boost/iostreams/device/mapped_file.hpp>
+// #include <boost/iostreams/stream.hpp>
 #include <bits/stdc++.h>
 
 uint32_t vertex_num, edge_num;
@@ -64,25 +66,48 @@ void GoToLine(std::ifstream& file, uint32_t num) {
     }
 }
 
-void ReadFile(uint thread_id) {
+/*void GoToLine(boost::iostreams::stream<boost::iostreams::mapped_file_source>& file, uint32_t num) {
+    file.seekg(std::ios::beg);
+    for (ssize_t i = 0; i < num - 1; ++ i) {
+        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+}*/
+
+void ReadFile(uint32_t thread_id) {
     std::cout << syscall(SYS_gettid) << std::endl;
+
+    // boost::iostreams::mapped_file_source mmap(input_file);
+    // boost::iostreams::stream<boost::iostreams::mapped_file_source> infs(mmap);
     std::ifstream infs;
     infs.open(input_file);
-    uint32_t extra = edge_num % user_threads;
+    // uint32_t extra = edge_num % user_threads;
+
+    uint32_t total_chunk = user_threads * 10 + (user_threads - 1) * user_threads / 2;
+    uint32_t extra = edge_num % total_chunk;
+
     uint32_t chunk_size = edge_num / user_threads + 1;
     uint32_t work_load;
     uint32_t start_line;
 
-    if (thread_id < extra) {
+    if (thread_id == 0) {
+        start_line = 2;
+        work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id) + extra;
+    } else {
+        start_line = 2 + extra + (edge_num / total_chunk) * (thread_id*10 + (2*user_threads-thread_id-1) * thread_id / 2 );
+        work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id);
+    }
+
+
+    /*if (thread_id < extra) {
         start_line = chunk_size * thread_id + 2;
         work_load = chunk_size;
     } else {
         start_line = (chunk_size * extra) + (chunk_size - 1) * (thread_id - extra) + 2;
         work_load = chunk_size - 1;
-    }
+    }*/
 
     GoToLine(infs, start_line);
-    std::cout << "Go to " << start_line << " done" << std::endl;
+    // std::cout << "Go to " << start_line << " done" << std::endl;
 
     for (ssize_t i = 0; i < work_load; ++ i) {
         uint32_t start, to, weight;
