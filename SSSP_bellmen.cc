@@ -1,5 +1,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
+// #include <boost/iostreams/device/mapped_file.hpp>
+// #include <boost/iostreams/stream.hpp>
 #include <bits/stdc++.h>
 
 uint32_t vertex_num, edge_num;
@@ -64,8 +66,18 @@ void GoToLine(std::ifstream& file, uint32_t num) {
     }
 }
 
-void ReadFile(uint thread_id) {
+/*void GoToLine(boost::iostreams::stream<boost::iostreams::mapped_file_source>& file, uint32_t num) {
+    file.seekg(std::ios::beg);
+    for (ssize_t i = 0; i < num - 1; ++ i) {
+        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+}*/
+
+void ReadFile(uint32_t thread_id) {
     std::cout << syscall(SYS_gettid) << std::endl;
+
+    // boost::iostreams::mapped_file_source mmap(input_file);
+    // boost::iostreams::stream<boost::iostreams::mapped_file_source> infs(mmap);
     std::ifstream infs;
     infs.open(input_file);
     uint32_t extra = edge_num % user_threads;
