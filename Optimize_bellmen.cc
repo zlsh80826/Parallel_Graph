@@ -1,5 +1,5 @@
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 // #include <boost/iostreams/device/mapped_file.hpp>
 // #include <boost/iostreams/stream.hpp>
 #include <bits/stdc++.h>
@@ -61,7 +61,7 @@ void FindPath(uint32_t root) {
 
 void GoToLine(std::ifstream& file, uint32_t num) {
     file.seekg(std::ios::beg);
-    for (ssize_t i = 0; i < num - 1; ++ i) {
+    for (ssize_t i = 0; i < num - 1; ++i) {
         file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 }
@@ -93,10 +93,10 @@ void ReadFile(uint32_t thread_id) {
         start_line = 2;
         work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id) + extra;
     } else {
-        start_line = 2 + extra + (edge_num / total_chunk) * (thread_id*10 + (2*user_threads-thread_id-1) * thread_id / 2 );
+        start_line = 2 + extra +
+                     (edge_num / total_chunk) * (thread_id * 10 + (2 * user_threads - thread_id - 1) * thread_id / 2);
         work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id);
     }
-
 
     /*if (thread_id < extra) {
         start_line = chunk_size * thread_id + 2;
@@ -109,7 +109,7 @@ void ReadFile(uint32_t thread_id) {
     GoToLine(infs, start_line);
     // std::cout << "Go to " << start_line << " done" << std::endl;
 
-    for (ssize_t i = 0; i < work_load; ++ i) {
+    for (ssize_t i = 0; i < work_load; ++i) {
         uint32_t start, to, weight;
         infs >> start >> to >> weight;
         vertex[start].add_neighbor(to, weight);
@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
 
     vertex = std::vector<Vertex>(vertex_num + 1);
 
-    for (ssize_t i = 0; i < user_threads; ++ i) {
+    for (ssize_t i = 0; i < user_threads; ++i) {
         threads_pool.push_back(std::thread(ReadFile, user_threads - i - 1));
     }
 

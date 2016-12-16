@@ -27,9 +27,7 @@ class Vertex {
         weight.emplace_back(w);
     }
 
-    void AllocateNeighbor() {
-        neighbors_distance.resize(neighbors.size());
-    }
+    void AllocateNeighbor() { neighbors_distance.resize(neighbors.size()); }
 
     Vertex() : distance_to_source(std::numeric_limits<uint32_t>::max()) {}
 };
@@ -56,7 +54,7 @@ void FindPath(uint32_t root) {
 
 void GoToLine(std::ifstream& file, uint32_t num) {
     file.seekg(std::ios::beg);
-    for (ssize_t i = 0; i < num - 1; ++ i) {
+    for (ssize_t i = 0; i < num - 1; ++i) {
         file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 }
@@ -71,13 +69,13 @@ void ThreadGoGo(int32_t thread_id) {
         offset = thread_id * chunk_size + 1;
         work_load = chunk_size;
     } else {
-        offset = chunk_size * extra + ( (thread_id - extra) * (chunk_size - 1)) + 1;
+        offset = chunk_size * extra + ((thread_id - extra) * (chunk_size - 1)) + 1;
         work_load = chunk_size - 1;
     }
 
-    for (ssize_t i = offset; i < offset + work_load; ++ i) {
+    for (ssize_t i = offset; i < offset + work_load; ++i) {
         auto& v = vertex[i];
-        for (size_t j = 0; j < v.neighbors_distance.size(); ++ j) {
+        for (size_t j = 0; j < v.neighbors_distance.size(); ++j) {
             if (v.neighbors_distance[j] == std::numeric_limits<uint32_t>::max())
                 continue;
             const uint32_t you = v.neighbors_distance[j] + v.weight[j];
@@ -100,13 +98,13 @@ void ThreadYoLo(int32_t thread_id) {
         offset = thread_id * chunk_size + 1;
         work_load = chunk_size;
     } else {
-        offset = chunk_size * extra + ( (thread_id - extra) * (chunk_size - 1)) + 1;
+        offset = chunk_size * extra + ((thread_id - extra) * (chunk_size - 1)) + 1;
         work_load = chunk_size - 1;
     }
 
-    for (ssize_t i = offset; i < offset + work_load; ++ i) {
+    for (ssize_t i = offset; i < offset + work_load; ++i) {
         auto& v = vertex[i];
-        for (size_t j = 0; j < v.neighbors.size(); ++ j) {
+        for (size_t j = 0; j < v.neighbors.size(); ++j) {
             v.neighbors_distance[j] = vertex[v.neighbors[j]].distance_to_source;
         }
     }
@@ -125,13 +123,14 @@ void ReadFile(uint32_t thread_id) {
         start_line = 2;
         work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id) + extra;
     } else {
-        start_line = 2 + extra + (edge_num / total_chunk) * (thread_id*10 + (2*user_threads-thread_id-1) * thread_id / 2 );
+        start_line = 2 + extra +
+                     (edge_num / total_chunk) * (thread_id * 10 + (2 * user_threads - thread_id - 1) * thread_id / 2);
         work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id);
     }
 
     GoToLine(infs, start_line);
 
-    for (ssize_t i = 0; i < work_load; ++ i) {
+    for (ssize_t i = 0; i < work_load; ++i) {
         uint32_t start, to, weight;
         infs >> start >> to >> weight;
         vertex[start].add_neighbor(to, weight);
@@ -163,7 +162,7 @@ int main(int argc, char** argv) {
 
     vertex = std::vector<Vertex>(vertex_num + 1);
 
-    for (ssize_t i = 0; i < user_threads; ++ i) {
+    for (ssize_t i = 0; i < user_threads; ++i) {
         threads_pool.emplace_back(ReadFile, i);
     }
 
@@ -184,13 +183,13 @@ int main(int argc, char** argv) {
     auto startTimer = std::chrono::high_resolution_clock::now();
     vertex[source].distance_to_source = 0;
 
-    for (size_t i = 0; i < vertex[source].neighbors.size(); ++ i) {
+    for (size_t i = 0; i < vertex[source].neighbors.size(); ++i) {
         vertex[vertex[source].neighbors[i]].distance_to_source = vertex[source].weight[i];
     }
 
     while (not done) {
         done = true;
-        for (ssize_t i = 0; i < user_threads; ++ i) {
+        for (ssize_t i = 0; i < user_threads; ++i) {
             threads_pool.emplace_back(ThreadYoLo, i);
         }
 
@@ -200,7 +199,7 @@ int main(int argc, char** argv) {
 
         threads_pool.clear();
 
-        for (ssize_t i = 0; i < user_threads; ++ i) {
+        for (ssize_t i = 0; i < user_threads; ++i) {
             threads_pool.emplace_back(ThreadGoGo, i);
         }
 
