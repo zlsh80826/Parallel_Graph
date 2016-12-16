@@ -13,16 +13,6 @@ std::ofstream outfs;
 
 std::vector<std::thread> threads_pool;
 
-class Edge {
-  public:
-    uint32_t to;
-    uint32_t weight;
-
-    Edge(uint32_t to, uint32_t weight) : to(to), weight(weight) {}
-
-    bool operator<(const Edge& e) const { return this->weight < e.weight; }
-};
-
 class Vertex {
   public:
     uint32_t distance_to_source;
@@ -30,7 +20,6 @@ class Vertex {
     std::vector<uint32_t> weight;
     std::vector<uint32_t> neighbors_distance;
     std::mutex mutex_v;
-    std::recursive_mutex mutex_distance;
 
     void add_neighbor(uint32_t to, uint32_t w) {
         std::lock_guard<std::mutex> lock(mutex_v);
@@ -38,15 +27,8 @@ class Vertex {
         weight.emplace_back(w);
     }
 
-    void relax(uint32_t new_distance) {
-        std::lock_guard<std::recursive_mutex> lock(mutex_distance);
-        distance_to_source = new_distance;
-    }
-
     void AllocateNeighbor() {
-        // std::cout << neighbors.size() << std::endl;
         neighbors_distance.resize(neighbors.size());
-        // std::cout << neighbors_distance.size() << std::endl;
     }
 
     Vertex() : distance_to_source(std::numeric_limits<uint32_t>::max()) {}
@@ -58,6 +40,7 @@ void FindPath(uint32_t root) {
     std::vector<uint32_t> reverse_vec;
     uint32_t current = root;
     reverse_vec.emplace_back(current);
+
     while (current != source) {
         current = parent[current];
         reverse_vec.emplace_back(current);
@@ -79,11 +62,11 @@ void GoToLine(std::ifstream& file, uint32_t num) {
 }
 
 void ThreadGoGo(int32_t thread_id) {
-
     int32_t extra = vertex_num % user_threads;
     int32_t chunk_size = vertex_num / user_threads + 1;
     int32_t work_load;
     int32_t offset;
+
     if (thread_id < extra) {
         offset = thread_id * chunk_size + 1;
         work_load = chunk_size;
@@ -112,6 +95,7 @@ void ThreadYoLo(int32_t thread_id) {
     int32_t chunk_size = vertex_num / user_threads + 1;
     int32_t work_load;
     int32_t offset;
+
     if (thread_id < extra) {
         offset = thread_id * chunk_size + 1;
         work_load = chunk_size;
@@ -119,12 +103,13 @@ void ThreadYoLo(int32_t thread_id) {
         offset = chunk_size * extra + ( (thread_id - extra) * (chunk_size - 1)) + 1;
         work_load = chunk_size - 1;
     }
+
     for (ssize_t i = offset; i < offset + work_load; ++ i) {
         auto& v = vertex[i];
         for (size_t j = 0; j < v.neighbors.size(); ++ j) {
             v.neighbors_distance[j] = vertex[v.neighbors[j]].distance_to_source;
-        } 
-    }        
+        }
+    }
 }
 
 void ReadFile(uint32_t thread_id) {
@@ -179,7 +164,7 @@ int main(int argc, char** argv) {
     vertex = std::vector<Vertex>(vertex_num + 1);
 
     for (ssize_t i = 0; i < user_threads; ++ i) {
-        threads_pool.push_back(std::thread(ReadFile, user_threads - i - 1));
+        threads_pool.emplace_back(ReadFile, i);
     }
 
     for (auto& t : threads_pool) {
@@ -199,16 +184,14 @@ int main(int argc, char** argv) {
     auto startTimer = std::chrono::high_resolution_clock::now();
     vertex[source].distance_to_source = 0;
 
-    for (int i = 0; i < vertex[source].neighbors.size(); ++ i) {
+    for (size_t i = 0; i < vertex[source].neighbors.size(); ++ i) {
         vertex[vertex[source].neighbors[i]].distance_to_source = vertex[source].weight[i];
     }
 
-    int count = 0;
     while (not done) {
-        std::cout << ++ count << std::endl;
         done = true;
         for (ssize_t i = 0; i < user_threads; ++ i) {
-            threads_pool.push_back(std::thread(ThreadYoLo, i));
+            threads_pool.emplace_back(ThreadYoLo, i);
         }
 
         for (auto& t : threads_pool) {
@@ -217,9 +200,8 @@ int main(int argc, char** argv) {
 
         threads_pool.clear();
 
-
         for (ssize_t i = 0; i < user_threads; ++ i) {
-            threads_pool.push_back(std::thread(ThreadGoGo, i));
+            threads_pool.emplace_back(ThreadGoGo, i);
         }
 
         for (auto& t : threads_pool) {
