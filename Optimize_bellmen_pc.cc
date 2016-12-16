@@ -1,7 +1,3 @@
-#include <unistd.h>
-#include <sys/syscall.h>
-// #include <boost/iostreams/device/mapped_file.hpp>
-// #include <boost/iostreams/stream.hpp>
 #include <bits/stdc++.h>
 
 uint32_t vertex_num, edge_num;
@@ -11,10 +7,11 @@ uint32_t* parent;
 char* input_file;
 char* output_file;
 
+bool done = false;
+
 std::ofstream outfs;
 
 std::vector<std::thread> threads_pool;
-std::mutex file_mutex;
 
 class Edge {
   public:
@@ -29,12 +26,27 @@ class Edge {
 class Vertex {
   public:
     uint32_t distance_to_source;
-    std::vector<Edge> neighbors;
+    std::vector<uint32_t> neighbors;
+    std::vector<uint32_t> weight;
+    std::vector<uint32_t> neighbors_distance;
     std::mutex mutex_v;
+    std::recursive_mutex mutex_distance;
 
-    void add_neighbor(uint32_t to, uint32_t weight) {
+    void add_neighbor(uint32_t to, uint32_t w) {
         std::lock_guard<std::mutex> lock(mutex_v);
-        neighbors.emplace_back(to, weight);
+        neighbors.emplace_back(to);
+        weight.emplace_back(w);
+    }
+
+    void relax(uint32_t new_distance) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_distance);
+        distance_to_source = new_distance;
+    }
+
+    void AllocateNeighbor() {
+        // std::cout << neighbors.size() << std::endl;
+        neighbors_distance.resize(neighbors.size());
+        // std::cout << neighbors_distance.size() << std::endl;
     }
 
     Vertex() : distance_to_source(std::numeric_limits<uint32_t>::max()) {}
@@ -66,26 +78,61 @@ void GoToLine(std::ifstream& file, uint32_t num) {
     }
 }
 
-/*void GoToLine(boost::iostreams::stream<boost::iostreams::mapped_file_source>& file, uint32_t num) {
-    file.seekg(std::ios::beg);
-    for (ssize_t i = 0; i < num - 1; ++ i) {
-        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+void ThreadGoGo(int32_t thread_id) {
+
+    int32_t extra = vertex_num % user_threads;
+    int32_t chunk_size = vertex_num / user_threads + 1;
+    int32_t work_load;
+    int32_t offset;
+    if (thread_id < extra) {
+        offset = thread_id * chunk_size + 1;
+        work_load = chunk_size;
+    } else {
+        offset = chunk_size * extra + ( (thread_id - extra) * (chunk_size - 1)) + 1;
+        work_load = chunk_size - 1;
     }
-}*/
+
+    for (ssize_t i = offset; i < offset + work_load; ++ i) {
+        auto& v = vertex[i];
+        for (size_t j = 0; j < v.neighbors_distance.size(); ++ j) {
+            if (v.neighbors_distance[j] == std::numeric_limits<uint32_t>::max())
+                continue;
+            const uint32_t you = v.neighbors_distance[j] + v.weight[j];
+            if (you < v.distance_to_source) {
+                v.distance_to_source = you;
+                parent[i] = v.neighbors[j];
+                done = false;
+            }
+        }
+    }
+}
+
+void ThreadYoLo(int32_t thread_id) {
+    int32_t extra = vertex_num % user_threads;
+    int32_t chunk_size = vertex_num / user_threads + 1;
+    int32_t work_load;
+    int32_t offset;
+    if (thread_id < extra) {
+        offset = thread_id * chunk_size + 1;
+        work_load = chunk_size;
+    } else {
+        offset = chunk_size * extra + ( (thread_id - extra) * (chunk_size - 1)) + 1;
+        work_load = chunk_size - 1;
+    }
+    for (ssize_t i = offset; i < offset + work_load; ++ i) {
+        auto& v = vertex[i];
+        for (size_t j = 0; j < v.neighbors.size(); ++ j) {
+            v.neighbors_distance[j] = vertex[v.neighbors[j]].distance_to_source;
+        } 
+    }        
+}
 
 void ReadFile(uint32_t thread_id) {
-    // std::cout << syscall(SYS_gettid) << std::endl;
-
-    // boost::iostreams::mapped_file_source mmap(input_file);
-    // boost::iostreams::stream<boost::iostreams::mapped_file_source> infs(mmap);
     std::ifstream infs;
     infs.open(input_file);
-    // uint32_t extra = edge_num % user_threads;
 
     uint32_t total_chunk = user_threads * 10 + (user_threads - 1) * user_threads / 2;
     uint32_t extra = edge_num % total_chunk;
-
-    uint32_t chunk_size = edge_num / user_threads + 1;
     uint32_t work_load;
     uint32_t start_line;
 
@@ -97,17 +144,7 @@ void ReadFile(uint32_t thread_id) {
         work_load = (edge_num / total_chunk) * (9 + user_threads - thread_id);
     }
 
-
-    /*if (thread_id < extra) {
-        start_line = chunk_size * thread_id + 2;
-        work_load = chunk_size;
-    } else {
-        start_line = (chunk_size * extra) + (chunk_size - 1) * (thread_id - extra) + 2;
-        work_load = chunk_size - 1;
-    }*/
-
     GoToLine(infs, start_line);
-    // std::cout << "Go to " << start_line << " done" << std::endl;
 
     for (ssize_t i = 0; i < work_load; ++ i) {
         uint32_t start, to, weight;
@@ -149,6 +186,12 @@ int main(int argc, char** argv) {
         t.join();
     }
 
+    threads_pool.clear();
+
+    for (auto& v : vertex) {
+        v.AllocateNeighbor();
+    }
+
     auto IendTimer = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
     std::cout << "Input took " << Idiff.count() << " Second" << std::endl;
@@ -156,26 +199,34 @@ int main(int argc, char** argv) {
     auto startTimer = std::chrono::high_resolution_clock::now();
     vertex[source].distance_to_source = 0;
 
-    // uint32_t me;
-    // uint32_t you;
+    for (int i = 0; i < vertex[source].neighbors.size(); ++ i) {
+        vertex[vertex[source].neighbors[i]].distance_to_source = vertex[source].weight[i];
+    }
 
-    bool done = false;
+    int count = 0;
     while (not done) {
+        std::cout << ++ count << std::endl;
         done = true;
-        for (uint32_t i = source, j = 1; j <= vertex_num; i = i % vertex_num + 1, ++j) {
-            const auto& v = vertex[i];
-            if (v.distance_to_source == std::numeric_limits<uint32_t>::max())
-                continue;
-            for (const auto& u : v.neighbors) {
-                uint32_t me = v.distance_to_source + u.weight;
-                const uint32_t you = u.to;
-                if (me < vertex[you].distance_to_source) {
-                    vertex[you].distance_to_source = me;
-                    parent[you] = i;
-                    done = false;
-                }
-            }
+        for (ssize_t i = 0; i < user_threads; ++ i) {
+            threads_pool.push_back(std::thread(ThreadYoLo, i));
         }
+
+        for (auto& t : threads_pool) {
+            t.join();
+        }
+
+        threads_pool.clear();
+
+
+        for (ssize_t i = 0; i < user_threads; ++ i) {
+            threads_pool.push_back(std::thread(ThreadGoGo, i));
+        }
+
+        for (auto& t : threads_pool) {
+            t.join();
+        }
+
+        threads_pool.clear();
     }
 
     auto endTimer = std::chrono::high_resolution_clock::now();
