@@ -27,21 +27,19 @@ char* output_file;
 std::ofstream outfs;
 
 struct Token {
-public:
+  public:
     bool color;
     bool terminate;
 
     void init() {
-        this -> color = WHITE;
-        this -> terminate = false;
+        this->color = WHITE;
+        this->terminate = false;
     }
 
-    void setTerminate() {
-        this -> terminate = true;
-    }
+    void setTerminate() { this->terminate = true; }
 
     void print() {
-        fprintf(stderr,"Rank %d has Token: color = %d, terminate = %d\n", Rank + 1, this -> color, this -> terminate);
+        fprintf(stderr, "Rank %d has Token: color = %d, terminate = %d\n", Rank + 1, this->color, this->terminate);
     }
 
     Token() : color(WHITE), terminate(false) {}
@@ -201,28 +199,15 @@ int main(int argc, char** argv) {
     MPI_Dist_graph_neighbors(graph_communicator, indegree, sources, sources_weight, outdegree, destinations,
                              destinations_weight);
 
-    // fprintf(stderr, "Rank %d has %d indegree %d outdegree\n", Rank + 1, indegree, outdegree);
-
-    // int32_t* cache = new int32_t[vertex_num];
     std::vector<int32_t> cache(vertex_num);
     assert(vertex_num > 0);
     assert(indegree <= vertex_num);
-
-    for (int i = 0; i < vertex_num; ++i) {
-        cache.at(i) = -1;
-    }
     assert(indegree == outdegree);
+
     for (int i = 0; i < indegree; ++i) {
-        // std::cerr << i << " " << vertex_num << " " << destinations[i] << " " << destinations_weight[i] << std::endl;
-        // fprintf(stderr, "%d connected to %d weights: %d\n", Rank + 1, destinations[i] + 1, destinations_weight[i]);
         cache.at(destinations[i]) = destinations_weight[i];
     }
-
     cache.at(Rank) = 0;
-    // MPI_Finalize();
-    // return 0;
-
-    // fprintf(stderr,"Rank %d done\n", Rank);
 
     int32_t distance_to_source = std::numeric_limits<int32_t>::max();
     int32_t new_distance_to_source = 0;
@@ -231,74 +216,38 @@ int main(int argc, char** argv) {
 
     bool color = WHITE;
     bool terminate = false;
-    int32_t prev_rank = (Rank == 0) ? nprocs - 1 : Rank - 1;
     int32_t next_rank = (Rank == nprocs - 1) ? 0 : Rank + 1;
     int32_t source_prev = (source == 0) ? nprocs - 1 : source - 1;
     MPI_Request requestArr[2];
 
     MPI_Request& tokenRequest = requestArr[1];
     MPI_Request& distanceRequest = requestArr[0];
-    // MPI_Request& terminateRequest = requestArr[2];
-    // MPI_Status distanceStatus;
-    // MPI_Status tokenStatus;
-    // MPI_Status terminateStatus;
 
-    int32_t hasWorkload = false;
-    int32_t hasToken = false;
-    int32_t needTerminate = false;
-
-    int32_t token_with_color = WHITE;
-    int32_t token_with_terminate = false;
-
-    // MPI_Barrier(graph_communicator);
-    // std::cerr << "BARRIERRRRRRRRRRRRRRRRRRRRRRR\n";
-    // MPI_Barrier(graph_communicator);
     MPI_Comm_rank(graph_communicator, &Rank);
 
     MPI_Irecv(&new_distance_to_source, 1, MPI_INT, MPI_ANY_SOURCE, DISTANCE, graph_communicator, &distanceRequest);
     MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
-    // MPI_Irecv(&token_with_color, 1, MPI_INT, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
-    // MPI_Irecv(&token_with_terminate, 1, MPI_INT, MPI_ANY_SOURCE, TERMINTAE, graph_communicator, &terminateRequest);
-
-    MPI_Barrier(graph_communicator);
-    fprintf(stderr, "%d %d\n", Rank, getpid());
-    MPI_Barrier(graph_communicator);
 
     if (Rank == source) {
         token.init();
         token.color = BLACK;
-        token_with_color = BLACK;
-        assert(zero == 0);
         MPI_Send(&zero, 1, MPI_INT, source, DISTANCE, graph_communicator);
-        std::cerr << "SEND ZERO DONE\n";
         MPI_Send(&token, 1, MPI_TOKEN, source, TOKEN, graph_communicator);
-        std::cerr << "SEND DONE\n";
     }
 
     MPI_Status status;
-    // std::cerr << "?" << std::endl;
-    // MPI_Barrier(graph_communicator);
 
     while (not terminate) {
-        // usleep(500);
-        // fprintf(stderr, "Rank %d Start Wait\n", Rank + 1);
-        // MPI_Test(&distanceRequest, &hasWorkload, &distanceStatus);
         int32_t index;
         MPI_Waitany(2, requestArr, &index, &status);
         if (index == 0) {
-            //fprintf(stderr, "Rank %d receive %d cache: %d distance_to_source: %d\n", Rank + 1, new_distance_to_source,
-            //        cache.at(status.MPI_SOURCE), distance_to_source);
             if (new_distance_to_source != std::numeric_limits<int32_t>::max()) {
-
-                int tmp = distance_to_source;
-                if (new_distance_to_source + cache.at(status.MPI_SOURCE) < distance_to_source) {
-                    distance_to_source = new_distance_to_source + cache.at(status.MPI_SOURCE);
+                const int32_t w = cache[status.MPI_SOURCE];
+                if (new_distance_to_source + w < distance_to_source) {
+                    distance_to_source = new_distance_to_source + w;
                     parent = status.MPI_SOURCE;
-                    //fprintf(stderr, "Rank %d was update by %d\nnew distance is %d, old distance is %d, weight is %d\n",
-                    //        Rank + 1, parent + 1, distance_to_source, tmp, cache.at(status.MPI_SOURCE));
                     for (ssize_t i = 0; i < outdegree; ++i) {
                         MPI_Send(&distance_to_source, 1, MPI_INT, destinations[i], DISTANCE, graph_communicator);
-                        // fprintf(stderr, "%d Send to %d\n", Rank, destinations[i]);
                         if (color == WHITE) {
                             if (Rank > source && destinations[i] < Rank && destinations[i] >= source) {
                                 color = BLACK;
@@ -311,29 +260,18 @@ int main(int argc, char** argv) {
             }
             MPI_Irecv(&new_distance_to_source, 1, MPI_INT, MPI_ANY_SOURCE, DISTANCE, graph_communicator,
                       &distanceRequest);
-            // MPI_Test(&distanceRequest, &hasWorkload, &distanceStatus);
-
         } else {
-            assert(index == 1);
             if (Rank == source) {
-
-                token.print();
                 if (token.color == WHITE) {
-
-                    std::cerr << "I want terminate\n";
                     token.setTerminate();
                     terminate = true;
                     MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-                    token.print();
-                    // MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
                 } else {
-                    //std::cerr << "Q\n";
                     token.init();
                     MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
                     MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
                 }
             } else {
-                token.print();
                 if (token.terminate == true) {
                     terminate = true;
                     if (Rank != source_prev)
@@ -344,83 +282,19 @@ int main(int argc, char** argv) {
                         color = WHITE;
                     }
                     MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-                    // fprintf(stderr, "%d Send Token to %d\n", Rank + 1, next_rank + 1);
                     MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
                 }
             }
         }
-
-        /*MPI_Test(&terminateRequest, &needTerminate, &terminateStatus);
-        if (needTerminate) {
-            if (Rank != source_prev)
-                MPI_Send(&terminate, 1, MPI_INT, next_rank, TERMINTAE, graph_communicator);
-        }
-
-        MPI_Test(&tokenRequest, &hasToken, &tokenStatus);
-        if (hasToken) {
-            // token.print();
-            fprintf(stderr,"Rank %d receive %d token\n", Rank + 1, token_with_color);
-            if (Rank == source) {
-if (token.color == WHITE) {
-                    token.setTerminate();
-                    terminate = true;
-                    MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-                } else {
-                    token.init();
-                    MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-                    MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
-                }*/
-        /*if (token_with_color == WHITE) {
-            terminate = true;
-            token_with_terminate = true;
-            MPI_Send(&token_with_terminate, 1, MPI_INT, next_rank, TOKEN, graph_communicator);
-        } else {
-            token_with_color = WHITE;
-            MPI_Send(&token_with_color, 1, MPI_INT, next_rank, TOKEN, graph_communicator);
-            MPI_Irecv(&token_with_color, 1, MPI_INT, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
-        }
-    } else {
-if (token.terminate == true) {
-            terminate = true;
-            if (Rank != source_prev)
-                MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-        } else {
-            if (color == BLACK) {
-                token.color = BLACK;
-                color = WHITE;
-            }
-            MPI_Send(&token, 1, MPI_TOKEN, next_rank, TOKEN, graph_communicator);
-            MPI_Irecv(&token, 1, MPI_TOKEN, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
-        }*/
-        /*if (color == BLACK) {
-            token_with_color = BLACK;
-            color = WHITE;
-        }
-        MPI_Send(&token_with_color, 1, MPI_INT, next_rank, TOKEN, graph_communicator);
-        MPI_Irecv(&token_with_color, 1, MPI_INT, MPI_ANY_SOURCE, TOKEN, graph_communicator, &tokenRequest);
     }
-}*/
-        // MPI_Barrier(graph_communicator);
-    }
-    //std::cerr << "I'm break----------------------------------------------------\n";
 
-    MPI_Barrier(graph_communicator);
     if (Rank == 0) {
-        std::cerr << "need to allocate\n";
         parents = new int32_t[vertex_num];
-        std::cerr << "allocate done\n";
     }
-    MPI_Barrier(graph_communicator);
-    fprintf(stderr, "Start Gather\n");
+
     MPI_Gather(&parent, 1, MPI_INT, parents, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    fprintf(stderr, "End Gather\n");
-    MPI_Barrier(graph_communicator);
+
     if (Rank == 0) {
-        std::cerr << "Gather done\n";
-        /*for (int i = 0; i < vertex_num; ++i)
-        {
-            std::cerr << parents[i] << std::endl;
-        }*/
         outfs.open(output_file);
 
         for (ssize_t i = 0; i < vertex_num; ++i) {
