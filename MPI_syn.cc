@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
     bool global_done = false;
     int32_t distance_to_source = std::numeric_limits<int32_t>::max();
     int32_t parent = source;
-    if ( source == Rank ) {
+    if ( (int32_t)source == Rank ) {
         distance_to_source = 0;
     }
 

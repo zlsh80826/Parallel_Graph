@@ -85,7 +85,7 @@ void ReadFile(uint32_t thread_id) {
     uint32_t total_chunk = user_threads * 10 + (user_threads - 1) * user_threads / 2;
     uint32_t extra = edge_num % total_chunk;
 
-    uint32_t chunk_size = edge_num / user_threads + 1;
+    // uint32_t chunk_size = edge_num / user_threads + 1;
     uint32_t work_load;
     uint32_t start_line;
 

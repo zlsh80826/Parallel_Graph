@@ -4,9 +4,9 @@
 
 
 MPI_Comm graph_communicator;
-uint32_t vertex_num, edge_num;
-uint32_t user_threads;
-uint32_t source;
+int32_t vertex_num, edge_num;
+int32_t user_threads;
+int32_t source;
 int32_t Rank, nprocs;
 int32_t* parents;
 int32_t activeConstructor;
@@ -34,9 +34,9 @@ public:
     Vertex() : distance_to_source(std::numeric_limits<uint32_t>::max()) {}
 };
 
-void FindPath(uint32_t root) {
-    std::vector<uint32_t> reverse_vec;
-    uint32_t current = root;
+void FindPath(int32_t root) {
+    std::vector<int32_t> reverse_vec;
+    int32_t current = root;
     reverse_vec.emplace_back(current);
     while (current != source) {
         current = parents[current];
@@ -59,11 +59,10 @@ void GoToLine(std::ifstream& file, uint32_t num) {
 }
 
 void ParallelConstructGraph() {
-
-    uint32_t extra = edge_num % activeConstructor;
-    uint32_t chunk_size = edge_num / activeConstructor + 1;
-    uint32_t work_load;
-    uint32_t start_line;
+    int32_t extra = edge_num % activeConstructor;
+    int32_t chunk_size = edge_num / activeConstructor + 1;
+    int32_t work_load;
+    int32_t start_line;
 
     if (Rank < extra) {
         start_line = chunk_size * Rank + 2;
@@ -78,9 +77,6 @@ void ParallelConstructGraph() {
 
     GoToLine(infs, start_line);
 
-    // std::cout << "Rank: " << Rank << start_line << " " << work_load << std::endl;
-    printf("Rank: %d %d %d\n", Rank, start_line, work_load);
-
     int32_t* sources;
     int32_t* degrees;
     int32_t* destinations;
@@ -88,11 +84,9 @@ void ParallelConstructGraph() {
 
     std::vector<Vertex> vertex(vertex_num);
 
-
     for (ssize_t i = 0; i < work_load; ++ i) {
         uint32_t start, to, weight;
         infs >> start >> to >> weight;
-        // std::cout << start << " " << to << " " << weight;
         -- start; -- to;
         vertex[start].neighbors.emplace_back(to, weight);
         vertex[to].neighbors.emplace_back(start, weight);
@@ -105,7 +99,7 @@ void ParallelConstructGraph() {
     weights = new int32_t[double_edge];
 
     int32_t current = -1;
-    for (size_t i = 0; i < vertex_num; ++ i) {
+    for (ssize_t i = 0; i < vertex_num; ++ i) {
         sources[i] = i;
         degrees[i] = vertex[i].neighbors.size();
         for (auto const v : vertex[i].neighbors) {
@@ -131,54 +125,17 @@ int main(int argc, char** argv) {
     output_file = argv[3];
     activeConstructor = (nprocs < 16) ? nprocs : 16;
 
-
     if (Rank < activeConstructor) {
         std::ifstream infs;
         infs.open(input_file);
-
         infs >> vertex_num >> edge_num;
         infs.close();
+
         auto startTimer = std::chrono::high_resolution_clock::now();
         ParallelConstructGraph();
         auto endTimer = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> diff = endTimer - startTimer;
         std::cout << "Construct Graph Took " << diff.count() << " Second" << std::endl;
-        /*for (size_t i = 0; i < edge_num; ++ i) {
-            uint32_t start, to, weight;
-            infs >> start >> to >> weight;
-            -- start;
-            -- to;
-            // std::cout << start << " " << to << " " << weight << std::endl;
-            vertex.at(start).neighbors.emplace_back(to, weight);
-            vertex.at(to).neighbors.emplace_back(start, weight);
-        }
-
-        infs.close();*/
-        /*
-        const int32_t double_edge = edge_num * 2;
-        sources = new int32_t[vertex_num];
-        degrees = new int32_t[vertex_num];
-        destinations = new int32_t[double_edge];
-        weights = new int32_t[double_edge];
-
-        int32_t current = -1;
-        for (size_t i = 0; i < vertex_num; ++ i) {
-            sources[i] = i;
-            degrees[i] = vertex[i].neighbors.size();
-            for (auto const v : vertex[i].neighbors) {
-                destinations[++ current] = v.to;
-                weights[current] = v.weight;
-            }
-        }*/
-        /*auto IendTimer = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> Idiff = IendTimer - IstartTimer;
-        std::cout << "Reading Input " << Idiff.count() << " Second" << std::endl;
-
-        auto startTimer = std::chrono::high_resolution_clock::now();*/
-        // MPI_Dist_graph_create(MPI_COMM_WORLD, vertex_num, sources, degrees, destinations, weights, MPI_INFO_NULL, false, &graph_communicator);
-        /*auto endTimer = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> diff = endTimer - startTimer;
-        std::cout << "Construct Graph Took " << diff.count() << " Second" << std::endl;*/
     } else {
         int32_t* sources = nullptr;
         int32_t* degrees = nullptr;
@@ -187,17 +144,10 @@ int main(int argc, char** argv) {
         MPI_Dist_graph_create(MPI_COMM_WORLD, 0, sources, degrees, destinations, weights, MPI_INFO_NULL, false, &graph_communicator);
     }
 
-
-    // int32_t status;
-    // MPI_Topo_test(graph_communicator, &status);
-    // std::cout << status << " " << MPI_DIST_GRAPH << std::endl;
-    int32_t old_rank = Rank;
     MPI_Comm_rank(graph_communicator, &Rank);
 
-    std::cout << old_rank << " " << Rank << std::endl;
     int32_t id, od, we;
     MPI_Dist_graph_neighbors_count(graph_communicator, &id, &od, &we);
-    // printf("Rank: %d has %d indegree %d outdegree %d weights\n", Rank, id, od, we);
 
     int32_t* clear_source = new int32_t[id];
     int32_t* clear_source_weight = new int32_t[id];
@@ -210,14 +160,9 @@ int main(int argc, char** argv) {
     bool global_done = false;
     int32_t distance_to_source = std::numeric_limits<int32_t>::max();
     int32_t parent = source;
+
     if ( source == Rank ) {
         distance_to_source = 0;
-    }
-
-    if( Rank == 50 ) {
-        for ( ssize_t i = 0; i < od; ++ i) {
-            std:: cout << clear_dest[i] << " " << clear_dest_weight[i] << std::endl;
-        }
     }
 
     while ( not global_done ) {
@@ -234,7 +179,6 @@ int main(int argc, char** argv) {
             }
         }
         MPI_Allreduce(&local_done, &global_done, 1, MPI::BOOL, MPI_LAND, graph_communicator);
-
     }
 
     if (Rank == 0)
@@ -245,11 +189,7 @@ int main(int argc, char** argv) {
     if (Rank == 0) {
         outfs.open(output_file);
 
-        for (int i = 0; i < vertex_num; ++i) {
-            std::cout << parents[i] << std::endl;
-        }
-
-        for (uint32_t i = 0; i < vertex_num; ++i) {
+        for (ssize_t i = 0; i < vertex_num; ++i) {
             if (i == source)
                 outfs << source + 1 << " " << source + 1 << std::endl;
             else
